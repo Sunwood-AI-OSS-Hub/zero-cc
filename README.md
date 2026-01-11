@@ -106,7 +106,7 @@ GitHub リポジトリを新規作成・初期化します。
 3. スキルが自動的に読み込まれます
 
 ```bash
-git clone https://github.com/your-username/zero-cc.git
+git clone https://github.com/Sunwood-ai-labs/zero-cc.git
 cd zero-cc
 ```
 
