@@ -1,8 +1,9 @@
 ---
 name: repo-maintain
 description: |
-  既存GitHubリポジトリのメンテナンス（リリース、PR、Issue等）。ghコマンド使用。
-  トリガー例: 「リリースノート」「リリース」「プルリク」「issue」「repo-maintain」
+  既存GitHubリポジトリのメンテナンス（リリース、変更履歴、Issue等）。ghコマンド使用。
+  トリガー例: 「リリースノート」「リリース」「issue」「repo-maintain」
+  ※ PR 作成・マージは git-flow-workflow スキルを使用
 allowed-tools: Bash, Read, Write, Glob, Grep
 arguments: auto-detect
 user-invocable: true
@@ -24,16 +25,17 @@ user-invocable: true
 `$ARGUMENTS` から操作タイプを特定:
 
 | 操作 | 引数パターン | 説明 |
-|------|-------------|------|
+|:----|:-------------|:------|
 | **release** | `release [ver]`, `rl [ver]`, `publish [ver]` | リリース作成 |
-| **changelog** | `changelog`, `changes`, `changes` | 変更履歴生成 |
-| **pr** | `pr [title]`, `pull [title]` | プルリクエスト作成 |
+| **changelog** | `changelog`, `changes`, `history` | 変更履歴生成 |
 | **issue** | `issue [title]` | イシュー作成 |
 | **status** | `status`, `st` | 状態確認 |
 
 ---
 
-## release - リリース・リリースノート作成
+## release - リリース作成
+
+Git タグと GitHub リリースを作成します。
 
 ### 手順
 
@@ -56,10 +58,15 @@ user-invocable: true
 
 4. **リリースノート生成**
 
+   まず `references/RELEASE_NOTES.md` のフォーマットを参照:
+   ```
+   .claude/skills/repo-maintain/references/RELEASE_NOTES.md
+   ```
+
    コミットメッセージを解析して分類:
 
    | プレフィックス | カテゴリ |
-   |---------------|----------|
+   |:---------------|:----------|
    | `feat:` | 新機能 |
    | `fix:` | バグ修正 |
    | `refactor:` | リファクタリング |
@@ -69,30 +76,34 @@ user-invocable: true
    | `chore:` | その他 |
    | なし | 変更 |
 
-   **フォーマット:**
-   ```markdown
-   # [Version] - YYYY-MM-DD
+   **ステップ:**
+   1. `RELEASE_NOTES.md` をプロジェクトルートに生成（テンプレートを参照）
+   2. 必要に応じてヘッダー画像を作成:
+      - `references/release-header.svg` があれば参照
+      - なければ `references/header.svg` をベースに作成
 
-   ## 新機能
-   - 機能1 (#123)
-   - 機能2 (#124)
+5. **リリース実行（gh コマンド）**
 
-   ## バグ修正
-   - バグ修正1 (#125)
+   生成した `RELEASE_NOTES.md` を使用して GitHub リリースを作成:
 
-   ## 変更
-   - リファクタ1
-
-   ## その他
-   - その他1
-   ```
-
-5. **リリース実行**
    ```bash
+   # マークダウンファイルを指定してリリース
+   gh release create v[version] \
+     --title "v[version] - YYYY-MM-DD" \
+     --notes-file RELEASE_NOTES.md \
+     --verify-tag
+
+   # タグが存在しない場合は先に作成
    git tag -a v[version] -m "v[version]"
    git push origin v[version]
-   gh release create v[version] --title "v[version]" --notes-file RELEASE_NOTES.md
+   gh release create v[version] \
+     --title "v[version] - YYYY-MM-DD" \
+     --notes-file RELEASE_NOTES.md
    ```
+
+   **ポイント:**
+   - `--notes-file` で生成済みのマークダウンを直接指定
+   - `--verify-tag` でタグの存在確認（オプション）
 
 6. **完了メッセージ**
    - リリースURL
@@ -101,6 +112,8 @@ user-invocable: true
 ---
 
 ## changelog - 変更履歴生成
+
+直近の変更履歴を生成・表示します。
 
 ```bash
 PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -111,51 +124,9 @@ git log ${PREV_TAG}..HEAD --pretty=format:"%h %s" --reverse
 
 ---
 
-## pr - プルリクエスト作成
-
-### 手順
-
-1. **現在のブランチ確認**
-   ```bash
-   git branch --show-current
-   ```
-
-2. **変更内容確認**
-   ```bash
-   git diff origin/main...HEAD --stat
-   git diff origin/main...HEAD
-   ```
-
-3. **コミット履歴確認**
-   ```bash
-   git log origin/main..HEAD --oneline
-   ```
-
-4. **PR作成**
-   ```bash
-   gh pr create --base main --title "[title]" --body "[description]"
-   ```
-
-   **PR説明フォーマット:**
-   ```markdown
-   ## 概要
-   [変更の概要]
-
-   ## 変更内容
-   - 変更1
-   - 変更2
-
-   ## 関連Issue
-   Closes #123
-
-   ## チェックリスト
-   - [x] テスト追加
-   - [x] ドキュメント更新
-   ```
-
----
-
 ## issue - イシュー作成
+
+GitHub イシューを作成します。
 
 ```bash
 gh issue create --title "[title]" --body "[description]" --label "bug,enhancement"
@@ -183,7 +154,9 @@ gh issue create --title "[title]" --body "[description]" --label "bug,enhancemen
 
 ---
 
-## status - 状態確認
+## status - リポジトリ状態確認
+
+リポジトリの状態をサマリー表示します。
 
 ```bash
 echo "=== Git Status ==="
@@ -212,7 +185,15 @@ gh issue list --state open --limit 5 2>/dev/null
 ```bash
 /repo-maintain release 1.0.0
 /repo-maintain changelog
-/repo-maintain pr "Add new feature"
 /repo-maintain issue "Bug: Login fails"
 /repo-maintain status
 ```
+
+---
+
+## 関連スキル
+
+| スキル | 用途 |
+|:------|:------|
+| **git-flow-workflow** | フィーチャーブランチ作成、PR作成、マージ |
+| **repo-create** | 新規リポジトリ作成 |
