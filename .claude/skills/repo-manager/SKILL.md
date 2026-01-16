@@ -109,6 +109,58 @@ gh project item-edit \
   --single-select-option-id 98236657  # Done
 ```
 
+### 8. 日付設定
+
+**重要: Issue をプロジェクトに追加した後、開始日と終了日を設定してください。**
+
+```bash
+# 1. フィールド一覧を取得（日付フィールドのIDを確認）
+gh project field-list 11 --owner Sunwood-ai-labs
+
+# 出力例:
+# 開始日    ProjectV2Field    PVTF_lAHOBnsxLs4BMiC9zg71LEA
+# 終了日    ProjectV2Field    PVTF_lAHOBnsxLs4BMiC9zg71LFU
+
+# 2. アイテムIDを取得（GraphQLまたは既知のIDを使用）
+# GraphQLで取得する場合:
+gh api graphql --field query='
+query($project: ID!) {
+  repository(owner: "Sunwood-ai-labs", name: "zero-cc") {
+    issue(number: ISSUE番号) {
+      projectItems(first: 10) {
+        nodes {
+          id
+        }
+      }
+    }
+  }
+}
+' --field project=PVT_kwHOBnsxLs4BMiC9
+
+# 3. 開始日を設定
+gh project item-edit \
+  --project-id PVT_kwHOBnsxLs4BMiC9 \
+  --id ITEM_ID \
+  --field-id PVTF_lAHOBnsxLs4BMiC9zg71LEA \
+  --date "YYYY-MM-DD"
+
+# 4. 終了日を設定
+gh project item-edit \
+  --project-id PVT_kwHOBnsxLs4BMiC9 \
+  --id ITEM_ID \
+  --field-id PVTF_lAHOBnsxLs4BMiC9zg71LFU \
+  --date "YYYY-MM-DD"
+```
+
+**既知のID（Agent-ZERO プロジェクト）:**
+- プロジェクトID: `PVT_kwHOBnsxLs4BMiC9`
+- ステータスフィールドID: `PVTSSF_lAHOBnsxLs4BMiC9zg7yZ1U`
+- 開始日フィールドID: `PVTF_lAHOBnsxLs4BMiC9zg71LEA`
+- 終了日フィールドID: `PVTF_lAHOBnsxLs4BMiC9zg71LFU`
+- Todo: `f75ad846`
+- In Progress: `47fc9ee4`
+- Done: `98236657`
+
 ## Issue テンプレート
 
 ```markdown
@@ -162,7 +214,11 @@ Todo → In Progress → Done
 
 2. Issue 作成 & プロジェクト追加
 
-3. 進捗管理開始
+3. ステータス設定（Todo or In Progress）
+
+4. 日付設定（開始日・終了日）
+
+5. 進捗管理開始
 ```
 
 ### リポジトリが存在しない場合
@@ -182,6 +238,7 @@ Todo → In Progress → Done
 2. **リポジトリ不存在**: ZERO-CC リポジトリをフォールバック先として使用
 3. **タスク粒度**: Issue は 1-2 日で完了できる粒度に分割
 4. **進捗報告**: 適宜 Issue コメントで進捗を報告
+5. **日付設定**: Issue 作成後、必ず開始日と終了日を設定すること（YYYY-MM-DD形式）
 
 ## 参照
 
