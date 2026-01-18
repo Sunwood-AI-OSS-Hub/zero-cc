@@ -81,30 +81,91 @@ gh issue create \
 
 **重要: `sub_issue_id` には Issue番号ではなく `databaseId` を使用します。**
 
+#### Step 1: 親Issueとサブイシューの databaseId を取得
+
 ```bash
-# 1. 各サブイシューの databaseId を取得（GraphQL）
+# GraphQLで一括取得
 gh api graphql -f query='
 query {
-  repository(owner: "OWNER", name: "REPO") {
-    issue(number: SUB_ISSUE_NUMBER) {
+  repository(owner: "Sunwood-AI-OSS-Hub", name: "zero-cc") {
+    parent: issue(number: 15) {
+      databaseId
+    }
+    sub1: issue(number: 16) {
+      databaseId
+    }
+    sub2: issue(number: 17) {
+      databaseId
+    }
+    sub3: issue(number: 18) {
       databaseId
     }
   }
 }'
+```
 
-# 2. サブイシューを親Issueに追加（REST API）
+出力例:
+```json
+{
+  "data": {
+    "repository": {
+      "parent": {"databaseId": 3826594597},
+      "sub1": {"databaseId": 3826594753},
+      "sub2": {"databaseId": 3826594791},
+      "sub3": {"databaseId": 3826595239}
+    }
+  }
+}
+```
+
+#### Step 2: サブイシューを親Issueに追加（REST API）
+
+```bash
+# 各サブイシューを親Issueに追加
 curl -L \
   -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer $(gh auth token)" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "https://api.github.com/repos/OWNER/REPO/issues/PARENT_NUMBER/sub_issues" \
-  -d "{\"sub_issue_id\":DATABASE_ID}"
+  "https://api.github.com/repos/Sunwood-AI-OSS-Hub/zero-cc/issues/15/sub_issues" \
+  -d '{"sub_issue_id":3826594753}'
 
-# または GUI で設定:
-# - 各サブイシューを開く
-# - 右側の「Parent issue」で親Issueを選択
+# 他のサブイシューも同様に...
+# sub_issue_id: 3826594791  (Issue #17)
+# sub_issue_id: 3826595239  (Issue #18)
 ```
+
+**重要ポイント**:
+- `https://api.github.com/repos/{OWNER}/{REPO}/issues/{PARENT_NUMBER}/sub_issues` にPOSTする
+- `sub_issue_id` には **databaseId**（数値）を指定する
+- Issue番号（#16, #17など）を指定するとエラーになる
+
+#### 検証方法
+
+親Issueの `sub_issues_summary` で確認:
+
+```bash
+gh issue view 15 --json subIssues --jq '.subIssues | length'
+# 出力: 3 （サブイシューの数）
+```
+
+または、親IssueのJSONレスポンスで確認:
+
+```json
+{
+  "sub_issues_summary": {
+    "total": 6,
+    "completed": 6,
+    "percent_completed": 100
+  }
+}
+```
+
+#### GUIで設定する場合
+
+- 各サブイシューを開く
+- 右側の「Parent issue」セクションで親Issueを選択
+- または、親Issueを開いて「Sub-issues」セクションで追加
 
 ### 6. 結果を出力
 
