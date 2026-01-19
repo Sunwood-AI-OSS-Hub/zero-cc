@@ -3,3 +3,4 @@ extension-generator.skill
 .SourceSageignore
 ZERO_CC_PRJ/
 .vscode/settings.json
+.claude/.SourceSageAssets/Repository_summary.md
