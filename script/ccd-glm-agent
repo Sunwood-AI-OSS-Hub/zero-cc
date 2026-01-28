@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# ccd-glm-agent: シンプルな ccd_glm ラッパー
-# ccd_glm 関数を呼び出す実行ファイル
-
-ccd_glm "$@"
