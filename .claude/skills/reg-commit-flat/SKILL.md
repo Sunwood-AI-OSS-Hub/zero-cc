@@ -234,7 +234,22 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### 8. Gitフロー
 
-`repo-flow` モジュールを実行して、ブランチ作成・プッシュ・PR・マージを行います。
+`repo-flow` モジュールを実行して、プッシュ・PR作成・マージを行います。
+
+**重要**: マージ方法は **merge commit（`--merge`）** を使用します。複数のコミットを保持したままマージするため、`--squash` は使用しません。
+
+```bash
+# プッシュ
+git push -u origin feature/<name>
+
+# PR 作成
+gh pr create --base develop \
+  --title "タイトル" \
+  --body "PRボディ"
+
+# マージ（merge commit を作成）
+gh pr merge PR_NUMBER --merge --delete-branch=false
+```
 
 ## 実例
 
@@ -335,11 +350,12 @@ Closes #25
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# PRをマージ
+# PRをマージ（merge commit を作成）
+gh pr merge 30 --merge --delete-branch=false
+
+# develop に切り替えて最新を取得
 git checkout develop
 git pull
-git merge feature/docs-update-25 --no-ff
-git push origin develop
 
 # クリーンアップ
 git branch -d feature/docs-update-25
