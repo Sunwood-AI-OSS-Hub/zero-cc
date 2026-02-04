@@ -156,10 +156,10 @@ async function generateVideo(options: ImageToVideoOptions) {
       input: {
         image_url: imageUrl,
         prompt: options.prompt || "",
-        duration: options.duration || 4.0,
-        fps: options.fps || 24,
-        motion_scale: options.motionScale || 1.0
-      },
+        duration: (options.duration || 4.0) as any,
+        fps: (options.fps || 24) as any,
+        motion_scale: (options.motionScale || 1.0) as any
+      } as any,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
@@ -186,8 +186,8 @@ async function generateVideo(options: ImageToVideoOptions) {
     console.log(`  パス: ${outputPath}`);
     console.log(`  URL: ${result.data.video.url}`);
     console.log(`  コンテンツタイプ: ${result.data.video.content_type}`);
-    console.log(`  長さ: ${result.data.duration}秒`);
-    console.log(`  FPS: ${result.data.fps}`);
+    console.log(`  設定長さ: ${options.duration || 4.0}秒`);
+    console.log(`  設定FPS: ${options.fps || 24}`);
 
     return result;
   } catch (error) {

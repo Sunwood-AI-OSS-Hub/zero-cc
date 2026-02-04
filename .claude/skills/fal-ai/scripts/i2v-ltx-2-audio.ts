@@ -281,13 +281,14 @@ async function generateVideo(options: ImageToVideoAudioOptions) {
     console.log(`  音声: ${options.generateAudio !== false ? "あり" : "なし"}`);
 
     return result;
-  } catch (error: any) {
+  } catch (error) {
     console.error("\n✗ エラーが発生しました:");
     if (error instanceof Error) {
       console.error(error.message);
-      // エラー詳細を表示
-      if (error.body && error.body.detail) {
-        console.error("詳細:", JSON.stringify(error.body.detail, null, 2));
+      // エラー詳細を表示（fal.ai APIエラーの場合）
+      const err = error as any;
+      if (err.body && err.body.detail) {
+        console.error("詳細:", JSON.stringify(err.body.detail, null, 2));
       }
     }
     throw error;
