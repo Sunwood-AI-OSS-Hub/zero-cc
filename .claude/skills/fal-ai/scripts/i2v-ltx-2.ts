@@ -30,11 +30,12 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { savePromptMarkdown, PromptMetadata } from "./utils/prompt-saver.js";
 
-// .envファイルを読み込む
-dotenv.config();
-
+// .envファイルを読み込む（プロジェクトルートから）
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../../../../");
+const envPath = path.resolve(projectRoot, ".env");
+dotenv.config({ path: envPath });
 
 // 環境変数からAPIキーを取得
 const FAL_KEY = process.env.FAL_KEY;

@@ -176,17 +176,23 @@ async function editImage(options: EditImageOptions) {
     // 画像のアップロード（必要な場合）
     const imageUrl = await uploadImage(options.imageUrl);
 
+    // パラメータを構築（オプションパラメータは条件付きで追加）
+    const inputParams: Record<string, any> = {
+      image_urls: [imageUrl],
+      prompt: options.prompt,
+      negative_prompt: options.negativePrompt || "",
+      num_inference_steps: options.numInferenceSteps || 28,
+      guidance_scale: options.guidanceScale || 4.5,
+      enable_safety_checker: options.enableSafetyChecker !== false,
+      output_format: options.outputFormat || "png"
+    };
+
+    // オプションパラメータを追加（設定されている場合のみ）
+    if (options.seed !== undefined) inputParams.seed = options.seed;
+    if (options.strength !== undefined) inputParams.strength = options.strength;
+
     const result = await fal.subscribe("fal-ai/qwen-image-edit-2511", {
-      input: {
-        image_urls: [imageUrl],
-        prompt: options.prompt,
-        negative_prompt: options.negativePrompt || "",
-        num_inference_steps: options.numInferenceSteps || 28,
-        guidance_scale: options.guidanceScale || 4.5,
-        seed: options.seed,
-        enable_safety_checker: options.enableSafetyChecker !== false,
-        output_format: options.outputFormat || "png"
-      },
+      input: inputParams,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
