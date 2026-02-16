@@ -1,4 +1,36 @@
-.SourceSageAssets/DOCUMIND/Repository_summary.md
+# ============================================
+# Agent ZERO - Git Ignore Configuration
+# ============================================
+
+# ---------- Source Sage Assets ----------
+# このプロジェクトに関連する外部ツールによる自動生成アセット
+.SourceSageAssets/
+
+# ---------- External Tools ----------
+# Claude Code拡張機能のスキルファイル
+# 外部から取り込まれたスキル定義
 extension-generator.skill
-.SourceSageignore
+
+# ---------- Project Specific ----------
+# テスト用の一時リポジトリ
 ZERO_CC_PRJ/
+
+# ---------- IDE/Editor ----------
+# VSCode設定（個人設定は無視するため）
+.vscode/settings.json
+
+# ---------- Claude Code Internal ----------
+# Claude Codeの内部使用ファイル
+.claude/.SourceSageAssets/
+.claude/outputs/
+
+# ---------- Skills Environment ----------
+# スキルのvenv環境と設定ファイル
+.claude/skills/**/venv/
+.claude/skills/**/config/
+.claude/skills/**/__pycache__/
+.claude/skills/**/*/__pycache__/
+
+# Node.js dependencies
+.claude/skills/**/node_modules/
+.env

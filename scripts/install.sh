@@ -13,30 +13,26 @@ set -euo pipefail
 #
 # Usage (examples):
 #   curl -fsSL https://raw.githubusercontent.com/Sunwood-ai-labs/zero-cc/main/script/install.sh | bash
-#   ZAI_API_KEY="xxx" CC_NONROOT_USER="aslan" curl -fsSL .../install.sh | bash -s -- --force --perms
+#   ZAI_API_KEY="xxx" curl -fsSL .../install.sh | bash -s -- --force
 
-FORCE=0
+FORCE=1
 NO_BASHRC=0
-WRITE_PERMS=0
 SKIP_CLAUDE_INSTALL=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --force) FORCE=1 ;;
     --no-bashrc) NO_BASHRC=1 ;;
-    --perms) WRITE_PERMS=1 ;;
     --skip-claude-install) SKIP_CLAUDE_INSTALL=1 ;;
     -h|--help)
       cat <<'HELP'
 Options:
   --force                overwrite existing files (creates backups)
   --no-bashrc            do not modify ~/.bashrc
-  --perms                create ./.claude/settings.local.json (permissions template)
   --skip-claude-install  do not install Claude Code even if missing
 
 Env:
   ZAI_API_KEY        Z.AI API key (optional; prompts if TTY, else placeholder)
-  CC_NONROOT_USER    user for ccd-* downgrade when running as root (default: current user)
 HELP
       exit 0
       ;;
@@ -59,18 +55,20 @@ backup_if_exists() {
 }
 
 write_file_strict() {
-  # $1=path $2=content $3=mode
-  local path="$1" content="$2" mode="$3"
+  # $1=target_path $2=file_content $3=mode
+  local target_path="$1"
+  local file_content="$2"
+  local mode="$3"
 
-  if [ -e "$path" ] && [ "$FORCE" -ne 1 ]; then
-    echo "[install] exists (skip; use --force to overwrite): $path" >&2
+  if [ -e "$target_path" ] && [ "$FORCE" -ne 1 ]; then
+    echo "[install] exists (skip; use --force to overwrite): $target_path" >&2
     return 0
   fi
 
-  backup_if_exists "$path"
+  backup_if_exists "$target_path"
   umask 077
-  printf '%s' "$content" > "$path"
-  chmod "$mode" "$path"
+  printf '%s' "$file_content" > "$target_path"
+  chmod "$mode" "$target_path"
 }
 
 ensure_bashrc_loader() {
@@ -88,6 +86,28 @@ ensure_bashrc_loader() {
 # ---- user snippets (modular) ----
 if [ -d "$HOME/.bashrc.d" ]; then
   for f in "$HOME/.bashrc.d/"*.sh; do
+    [ -e "$f" ] || continue
+    . "$f"
+  done
+fi
+BLOCK
+}
+
+ensure_zshrc_loader() {
+  local zshrc="$1"
+  local marker="user snippets (modular)"
+
+  [ -e "$zshrc" ] || touch "$zshrc"
+
+  if grep -q "$marker" "$zshrc"; then
+    return 0
+  fi
+
+  cat >> "$zshrc" <<'BLOCK'
+
+# ---- user snippets (modular) ----
+if [ -d "$HOME/.bashrc.d" ]; then
+  for f in "$HOME"/.bashrc.d/*.sh; do
     [ -e "$f" ] || continue
     . "$f"
   done
@@ -113,14 +133,6 @@ pick_zai_key() {
   echo "YOUR_ZAI_API_KEY"
 }
 
-pick_nonroot_user() {
-  if [ -n "${CC_NONROOT_USER:-}" ]; then
-    echo "$CC_NONROOT_USER"
-    return 0
-  fi
-  # default: current user (works for typical non-root usage)
-  id -un
-}
 
 install_claude_if_missing() {
   if [ "$SKIP_CLAUDE_INSTALL" -eq 1 ]; then
@@ -153,8 +165,8 @@ write_path_snippet() {
   content=$(
     cat <<'EOF'
 # Ensure ~/.local/bin is on PATH (Claude Code installer links here)
-# Only run in bash
-[ -n "$BASH_VERSION" ] || return 0
+# Only run in bash/zsh
+[ -n "$BASH_VERSION" ] || [ -n "$ZSH_VERSION" ] || return 0
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) export PATH="$HOME/.local/bin:$PATH" ;;
@@ -169,14 +181,17 @@ write_secrets_and_modes() {
   mkdir -p "$bashrc_d"
   chmod 700 "$bashrc_d"
 
-  local zai_key nonroot_user
-  zai_key="$(pick_zai_key)"
-  nonroot_user="$(pick_nonroot_user)"
-
+  # シークレットファイルは既存の場合はスキップ（上書き防止）
   local secrets_path="$bashrc_d/00-llm-secrets.sh"
-  local secrets_content
-  secrets_content=$(
-    cat <<EOF
+  if [ -e "$secrets_path" ]; then
+    echo "[install] secrets file exists, skipping: $secrets_path" >&2
+  else
+    local zai_key
+    zai_key="$(pick_zai_key)"
+
+    local secrets_content
+    secrets_content=$(
+      cat <<EOF
 # LLM Secrets (DO NOT SHARE)
 
 # --- Z.AI (Anthropic-compatible endpoint for Claude Code) ---
@@ -184,20 +199,18 @@ ZAI_API_KEY="${zai_key}"
 
 # --- OpenRouter (keep for reference) ---
 # OPENROUTER_API_KEY="YOUR_OPENROUTER_KEY"
-
-# ccd-* を root で実行した場合に降格するユーザー（dangerous mode対策）
-CC_NONROOT_USER="${nonroot_user}"
 EOF
-  )
-  write_file_strict "$secrets_path" "$secrets_content" 600
+    )
+    write_file_strict "$secrets_path" "$secrets_content" 600
+  fi
 
   local modes_path="$bashrc_d/60-claude-modes.sh"
   local modes_content
   modes_content=$(
     cat <<'EOF'
 # ===== Claude Code: mode switching =====
-# Only run in bash
-[ -n "$BASH_VERSION" ] || return 0
+# Only run in bash/zsh
+[ -n "$BASH_VERSION" ] || [ -n "$ZSH_VERSION" ] || return 0
 
 # --- Z.AI Anthropic-compatible endpoint ---
 # Z.AI docs:
@@ -221,26 +234,6 @@ ZAI_DEFAULT_OPUS_MODEL="glm-4.7"
 # export ANTHROPIC_DEFAULT_SONNET_MODEL="$OPENROUTER_GLM_FREE_MODEL"
 # export ANTHROPIC_DEFAULT_HAIKU_MODEL="$OPENROUTER_GLM_FREE_MODEL"
 
-
-# --- internal helper: if root, re-exec as non-root for dangerous mode ---
-_ccd_reexec_as_nonroot_if_root() {
-  [ "${EUID:-$(id -u)}" -eq 0 ] || return 1
-
-  # shellcheck disable=SC1090
-  . "$HOME/.bashrc.d/00-llm-secrets.sh"
-
-  if [ -z "${CC_NONROOT_USER:-}" ]; then
-    echo "[ccd] CC_NONROOT_USER が未設定です: ~/.bashrc.d/00-llm-secrets.sh" >&2
-    exit 2
-  fi
-
-  if ! id "$CC_NONROOT_USER" >/dev/null 2>&1; then
-    echo "[ccd] 指定ユーザーが存在しません: CC_NONROOT_USER=$CC_NONROOT_USER" >&2
-    exit 2
-  fi
-
-  exec sudo -u "$CC_NONROOT_USER" -H bash -lc 'source ~/.bashrc; '"$1"' "$@"' bash "$@"
-}
 
 # 1) 通常（Anthropic 側ログイン/サブスク運用想定）
 cc_std() (
@@ -278,9 +271,58 @@ cc_glm() (
   command claude "$@"
 )
 
-# 3) Dangerous（root/sudo では Claude Code 側で拒否されるため、rootなら自動で非rootに降格）
+# 3) GLM Flash (glm-4.7-flash) - 通常モード
+cc_glm_47f() (
+  # shellcheck disable=SC1090
+  . "$HOME/.bashrc.d/00-llm-secrets.sh"
+
+  if [ -z "${ZAI_API_KEY:-}" ]; then
+    echo "[cc_glm_47f] ZAI_API_KEY が未設定です: ~/.bashrc.d/00-llm-secrets.sh を編集してください" >&2
+    exit 2
+  fi
+
+  export ANTHROPIC_BASE_URL="$ZAI_ANTHROPIC_BASE_URL"
+  export ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+  export ANTHROPIC_API_KEY=""
+
+  # optional, but recommended by Z.AI docs
+  export API_TIMEOUT_MS="${API_TIMEOUT_MS:-3000000}"
+
+  # 固定モデル: glm-4.7-flash
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.7-flash"
+  export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7-flash"
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7-flash"
+
+  command claude "$@"
+)
+
+# 4) GLM FlashX (glm-4.7-flashx) - 通常モード
+cc_glm_47fx() (
+  # shellcheck disable=SC1090
+  . "$HOME/.bashrc.d/00-llm-secrets.sh"
+
+  if [ -z "${ZAI_API_KEY:-}" ]; then
+    echo "[cc_glm_47fx] ZAI_API_KEY が未設定です: ~/.bashrc.d/00-llm-secrets.sh を編集してください" >&2
+    exit 2
+  fi
+
+  export ANTHROPIC_BASE_URL="$ZAI_ANTHROPIC_BASE_URL"
+  export ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+  export ANTHROPIC_API_KEY=""
+
+  # optional, but recommended by Z.AI docs
+  export API_TIMEOUT_MS="${API_TIMEOUT_MS:-3000000}"
+
+  # 固定モデル: glm-4.7-flashx
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.7-flashx"
+  export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7-flashx"
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7-flashx"
+
+  command claude "$@"
+)
+
+# 5) Dangerous（root/sudo では Claude Code 側で拒否されるため、rootなら自動で非rootに降格）
 ccd_std() (
-  _ccd_reexec_as_nonroot_if_root ccd_std "$@" || true
 
   unset ANTHROPIC_BASE_URL
   unset ANTHROPIC_AUTH_TOKEN
@@ -294,7 +336,6 @@ ccd_std() (
 )
 
 ccd_glm() (
-  _ccd_reexec_as_nonroot_if_root ccd_glm "$@" || true
 
   # shellcheck disable=SC1090
   . "$HOME/.bashrc.d/00-llm-secrets.sh"
@@ -316,91 +357,97 @@ ccd_glm() (
   command claude --dangerously-skip-permissions "$@"
 )
 
+# 6) GLM Flash (glm-4.7-flash) - Dangerous
+ccd_glm_47f() (
+  # shellcheck disable=SC1090
+  . "$HOME/.bashrc.d/00-llm-secrets.sh"
+
+  if [ -z "${ZAI_API_KEY:-}" ]; then
+    echo "[ccd_glm_47f] ZAI_API_KEY が未設定です: ~/.bashrc.d/00-llm-secrets.sh を編集してください" >&2
+    exit 2
+  fi
+
+  export ANTHROPIC_BASE_URL="$ZAI_ANTHROPIC_BASE_URL"
+  export ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+  export ANTHROPIC_API_KEY=""
+  export API_TIMEOUT_MS="${API_TIMEOUT_MS:-3000000}"
+
+  # 固定モデル: glm-4.7-flash
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.7-flash"
+  export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7-flash"
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7-flash"
+
+  command claude --dangerously-skip-permissions "$@"
+)
+
+# 7) GLM FlashX (glm-4.7-flashx) - Dangerous
+ccd_glm_47fx() (
+  # shellcheck disable=SC1090
+  . "$HOME/.bashrc.d/00-llm-secrets.sh"
+
+  if [ -z "${ZAI_API_KEY:-}" ]; then
+    echo "[ccd_glm_47fx] ZAI_API_KEY が未設定です: ~/.bashrc.d/00-llm-secrets.sh を編集してください" >&2
+    exit 2
+  fi
+
+  export ANTHROPIC_BASE_URL="$ZAI_ANTHROPIC_BASE_URL"
+  export ANTHROPIC_AUTH_TOKEN="$ZAI_API_KEY"
+  export ANTHROPIC_API_KEY=""
+  export API_TIMEOUT_MS="${API_TIMEOUT_MS:-3000000}"
+
+  # 固定モデル: glm-4.7-flashx
+  export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.7-flashx"
+  export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7-flashx"
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7-flashx"
+
+  command claude --dangerously-skip-permissions "$@"
+)
+
 alias cc-st='cc_std'
 alias cc-glm='cc_glm'
+alias cc-glm-47f='cc_glm_47f'
+alias cc-glm-47fx='cc_glm_47fx'
 alias ccd-st='ccd_std'
 alias ccd-glm='ccd_glm'
+alias ccd-glm-47f='ccd_glm_47f'
+alias ccd-glm-47fx='ccd_glm_47fx'
 EOF
   )
   write_file_strict "$modes_path" "$modes_content" 600
 }
 
-write_project_permissions_template() {
-  local dir="$PWD/.claude"
-  local path="$dir/settings.local.json"
+write_ccd_glm_agent() {
+  local bin_dir="$HOME/.local/bin"
+  mkdir -p "$bin_dir"
 
-  mkdir -p "$dir"
+  local agent_path="$bin_dir/ccd-glm-agent"
+  local content
+  content=$(
+    cat <<'EOF'
+#!/usr/bin/env bash
+# ccd-glm-agent: シンプルな ccd_glm ラッパー
+# ccd_glm 関数を呼び出す実行ファイル
 
-  if [ -e "$path" ] && [ "$FORCE" -ne 1 ]; then
-    echo "[install] exists (skip; use --force to overwrite): $path" >&2
-    return 0
-  fi
+ccd_glm "$@"
+EOF
+  )
 
-  backup_if_exists "$path"
-  umask 077
-  cat > "$path" <<'JSON'
-{
-  "permissions": {
-    "allow": [
-      "Bash(pwd)",
-      "Bash(ls)",
-      "Bash(ls:*)",
-      "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "Bash(rg:*)",
-      "Bash(cat:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(cd:*)",
-      "Bash(mkdir:*)",
-      "Bash(mv:*)",
-      "Bash(cp:*)",
-      "Bash(touch:*)",
-      "Bash(npm:*)",
-      "Bash(npx:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(uv:*)"
-    ],
-    "deny": [
-      "Bash(sudo:*)",
-      "Bash(su:*)",
-      "Bash(rm -rf:*)",
-      "Bash(rm:*)",
-      "Bash(dd:*)",
-      "Bash(mkfs:*)",
-      "Bash(chmod:*)",
-      "Bash(chown:*)",
-      "Bash(mount:*)",
-      "Bash(umount:*)",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ]
-  }
-}
-JSON
-  chmod 600 "$path"
-  echo "[install] wrote: $path"
+  write_file_strict "$agent_path" "$content" 755
+  echo "[install] wrote: $agent_path"
 }
 
 main() {
   install_claude_if_missing
   write_path_snippet
   write_secrets_and_modes
+  write_ccd_glm_agent
 
   if [ "$NO_BASHRC" -ne 1 ]; then
     ensure_bashrc_loader "$HOME/.bashrc"
+    ensure_zshrc_loader "$HOME/.zshrc"
   fi
 
-  if [ "$WRITE_PERMS" -eq 1 ]; then
-    write_project_permissions_template
-  fi
-
-  echo "[install] done. Run: source ~/.bashrc"
+  echo "[install] done. Run: source ~/.bashrc  (or source ~/.zshrc)"
   echo "[install] commands: cc-st / cc-glm / ccd-st / ccd-glm"
   echo "[install] verify: claude doctor"
 }
