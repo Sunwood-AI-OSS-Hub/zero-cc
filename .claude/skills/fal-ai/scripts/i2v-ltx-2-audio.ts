@@ -32,6 +32,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { savePromptMarkdown, PromptMetadata } from "./utils/prompt-saver.js";
 
 // .envファイルを読み込む（プロジェクトルートから）
 const __filename = fileURLToPath(import.meta.url);
@@ -276,9 +277,43 @@ async function generateVideo(options: ImageToVideoAudioOptions) {
     // 動画をダウンロード
     await downloadVideo(result.data.video.url, outputPath);
 
+    // プロンプト情報をマークダウンで保存
+    const metadata: PromptMetadata = {
+      model: "fal-ai/ltx-2-19b/distilled/image-to-video",
+      modelType: "I2V",
+      prompt: options.prompt || "",
+      negativePrompt: options.negativePrompt,
+      inputImageUrl: options.imageUrl,
+      fps: result.data.video.fps,
+      duration: result.data.video.duration,
+      requestId: result.requestId,
+      outputFiles: [{
+        filename: filename,
+        url: result.data.video.url,
+        width: result.data.video.width,
+        height: result.data.video.height,
+        contentType: result.data.video.content_type
+      }],
+      extraParams: {
+        numFrames: options.numFrames,
+        videoSize: options.videoSize,
+        generateAudio: options.generateAudio !== false,
+        useMultiscale: options.useMultiscale,
+        acceleration: options.acceleration,
+        cameraLoRA: options.cameraLoRA,
+        cameraLoRAScale: options.cameraLoRAScale,
+        enablePromptExpansion: options.enablePromptExpansion,
+        videoOutputType: options.videoOutputType,
+        videoQuality: options.videoQuality,
+        videoWriteMode: options.videoWriteMode
+      }
+    };
+    const mdPath = savePromptMarkdown(outputPath, metadata);
+
     console.log("\n生成された動画:");
     console.log(`  ファイル名: ${filename}`);
     console.log(`  パス: ${outputPath}`);
+    console.log(`  プロンプト: ${mdPath}`);
     console.log(`  URL: ${result.data.video.url}`);
     console.log(`  サイズ: ${result.data.video.width}x${result.data.video.height}`);
     console.log(`  コンテンツタイプ: ${result.data.video.content_type}`);
