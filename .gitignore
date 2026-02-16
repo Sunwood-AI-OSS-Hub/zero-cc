@@ -33,3 +33,4 @@ ZERO_CC_PRJ/
 
 # Node.js dependencies
 .claude/skills/**/node_modules/
+.env
