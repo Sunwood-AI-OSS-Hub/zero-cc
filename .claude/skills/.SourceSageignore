@@ -99,5 +99,4 @@ LICENSE
 *.mp4
 *.mp3
 
-remotion/
-Repository_summary.md
+extension-generator/

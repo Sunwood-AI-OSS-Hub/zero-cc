@@ -31,7 +31,8 @@ A collection of practical custom skills to enhance Claude Code productivity.
 | Skill | Description |
 |:------:|------|
 | **extension-generator** | Automatically generate Claude Code extensions (skills/agents) from natural language |
-| **repo-create** | Create and initialize new GitHub repositories |
+| **fal-ai** | Image generation/editing/video creation with fal.ai API (auto-save prompt metadata) |
+| **repo-create** | Create and initialize new GitHub repositories (AI-generated header images) |
 | **repo-flow** | Git Flow workflow (branch/PR/merge) |
 | **repo-maintain** | Maintain existing repositories (release/changelog/status) |
 | **remotion** | Best practices for Remotion video creation (React-based) |
@@ -67,11 +68,39 @@ Create and initialize a new GitHub repository.
 **Features:**
 - Repository creation with `gh repo create`
 - Auto-generate README.md / .gitignore / LICENSE
+- AI-generated header images (fal.ai Nano Banana Pro)
 - Auto-run initial commit
 
 ```bash
 /repo-create my-awesome-project
 /repo-create my-app --private --description "My awesome app"
+```
+
+---
+
+### 🎨 fal-ai
+
+Generate images, edit images, and create videos using fal.ai API.
+
+**Features:**
+- **Image generation** - Create high-quality images from text (Nano Banana Pro, Qwen Image 2512)
+- **Image editing** - Edit existing images with prompts
+- **Video generation** - Create videos from images (LTX-2)
+- **Video with audio** - Create videos with audio from images (LTX-2 19B Distilled)
+- **Auto-save prompts** - Automatically save prompt metadata as `.md` files alongside outputs
+
+```bash
+# Image generation
+"Create a marketing banner with text 'SUMMER SALE'"
+"Create an image of a sunset mountain range"
+"Generate a cat illustration"
+
+# Image editing
+"Make the sky blue in this photo"
+
+# Video generation
+"Create a video from this photo"
+"Create a video with audio from this photo"
 ```
 
 ---
@@ -205,6 +234,17 @@ zero-cc/
 │       ├── remotion/
 │       │   ├── SKILL.md
 │       │   └── rules/
+│       ├── fal-ai/
+│       │   ├── SKILL.md
+│       │   ├── scripts/
+│       │   │   ├── t2i-nano-banana-pro.ts
+│       │   │   ├── t2i-qwen-image-2512.ts
+│       │   │   ├── i2i-qwen-image-edit-2511.ts
+│       │   │   ├── i2v-ltx-2.ts
+│       │   │   ├── i2v-ltx-2-audio.ts
+│       │   │   └── utils/
+│       │   │       └── prompt-saver.ts
+│       │   └── package.json
 │       └── voicevox/
 │           ├── SKILL.md
 │           └── scripts/

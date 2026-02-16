@@ -28,6 +28,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { savePromptMarkdown, PromptMetadata } from "./utils/prompt-saver.js";
 
 // .envファイルを読み込む（プロジェクトルートから）
 const __filename = fileURLToPath(import.meta.url);
@@ -175,17 +176,23 @@ async function editImage(options: EditImageOptions) {
     // 画像のアップロード（必要な場合）
     const imageUrl = await uploadImage(options.imageUrl);
 
+    // パラメータを構築（オプションパラメータは条件付きで追加）
+    const inputParams: Record<string, any> = {
+      image_urls: [imageUrl],
+      prompt: options.prompt,
+      negative_prompt: options.negativePrompt || "",
+      num_inference_steps: options.numInferenceSteps || 28,
+      guidance_scale: options.guidanceScale || 4.5,
+      enable_safety_checker: options.enableSafetyChecker !== false,
+      output_format: options.outputFormat || "png"
+    };
+
+    // オプションパラメータを追加（設定されている場合のみ）
+    if (options.seed !== undefined) inputParams.seed = options.seed;
+    if (options.strength !== undefined) inputParams.strength = options.strength;
+
     const result = await fal.subscribe("fal-ai/qwen-image-edit-2511", {
-      input: {
-        image_urls: [imageUrl],
-        prompt: options.prompt,
-        negative_prompt: options.negativePrompt || "",
-        num_inference_steps: options.numInferenceSteps || 28,
-        guidance_scale: options.guidanceScale || 4.5,
-        seed: options.seed,
-        enable_safety_checker: options.enableSafetyChecker !== false,
-        output_format: options.outputFormat || "png"
-      },
+      input: inputParams,
       logs: true,
       onQueueUpdate: (update) => {
         if (update.status === "IN_PROGRESS") {
@@ -214,8 +221,33 @@ async function editImage(options: EditImageOptions) {
       // 画像をダウンロード
       await downloadImage(image.url, outputPath);
 
+      // プロンプト情報をマークダウンで保存
+      const metadata: PromptMetadata = {
+        model: "fal-ai/qwen-image-edit-2511",
+        modelType: "I2I",
+        prompt: options.prompt,
+        negativePrompt: options.negativePrompt,
+        seed: result.data.seed,
+        strength: options.strength,
+        numInferenceSteps: options.numInferenceSteps,
+        guidanceScale: options.guidanceScale,
+        outputFormat: options.outputFormat,
+        enableSafetyChecker: options.enableSafetyChecker,
+        inputImageUrl: options.imageUrl,
+        requestId: result.requestId,
+        outputFiles: [{
+          filename: filename,
+          url: image.url,
+          width: image.width,
+          height: image.height,
+          contentType: image.content_type
+        }]
+      };
+      const mdPath = savePromptMarkdown(outputPath, metadata);
+
       console.log(`  [${i + 1}] ${filename}`);
       console.log(`      パス: ${outputPath}`);
+      console.log(`      プロンプト: ${mdPath}`);
       console.log(`      サイズ: ${image.width}x${image.height}`);
       console.log(`      形式: ${image.content_type}`);
       console.log(`      URL: ${image.url}`);

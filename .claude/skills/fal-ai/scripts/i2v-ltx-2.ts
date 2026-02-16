@@ -28,12 +28,14 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { savePromptMarkdown, PromptMetadata } from "./utils/prompt-saver.js";
 
-// .envファイルを読み込む
-dotenv.config();
-
+// .envファイルを読み込む（プロジェクトルートから）
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../../../../");
+const envPath = path.resolve(projectRoot, ".env");
+dotenv.config({ path: envPath });
 
 // 環境変数からAPIキーを取得
 const FAL_KEY = process.env.FAL_KEY;
@@ -188,9 +190,28 @@ async function generateVideo(options: ImageToVideoOptions) {
     // 動画をダウンロード
     await downloadVideo(result.data.video.url, outputPath);
 
+    // プロンプト情報をマークダウンで保存
+    const metadata: PromptMetadata = {
+      model: "fal-ai/ltx-2/image-to-video/fast",
+      modelType: "I2V",
+      prompt: options.prompt || "",
+      inputImageUrl: options.imageUrl,
+      duration: options.duration || 4.0,
+      fps: options.fps || 24,
+      motionScale: options.motionScale || 1.0,
+      requestId: result.requestId,
+      outputFiles: [{
+        filename: filename,
+        url: result.data.video.url,
+        contentType: result.data.video.content_type
+      }]
+    };
+    const mdPath = savePromptMarkdown(outputPath, metadata);
+
     console.log("\n生成された動画:");
     console.log(`  ファイル名: ${filename}`);
     console.log(`  パス: ${outputPath}`);
+    console.log(`  プロンプト: ${mdPath}`);
     console.log(`  URL: ${result.data.video.url}`);
     console.log(`  コンテンツタイプ: ${result.data.video.content_type}`);
     console.log(`  設定長さ: ${options.duration || 4.0}秒`);

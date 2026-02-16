@@ -26,6 +26,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { savePromptMarkdown, PromptMetadata } from "./utils/prompt-saver.js";
 
 // .envファイルを読み込む（プロジェクトルートから）
 const __filename = fileURLToPath(import.meta.url);
@@ -220,8 +221,36 @@ async function generateImage(options: GenerateImageOptions) {
       // 画像をダウンロード
       await downloadImage(image.url, outputPath);
 
+      // プロンプト情報をマークダウンで保存
+      const metadata: PromptMetadata = {
+        model: "fal-ai/qwen-image-2512/lora",
+        modelType: "T2I",
+        prompt: options.prompt,
+        negativePrompt: options.negativePrompt,
+        seed: result.data.seed,
+        imageSize: typeof options.imageSize === "string" ? options.imageSize : undefined,
+        numInferenceSteps: options.numInferenceSteps,
+        guidanceScale: options.guidanceScale,
+        numImages: options.numImages,
+        outputFormat: options.outputFormat,
+        enableSafetyChecker: options.enableSafetyChecker,
+        requestId: result.requestId,
+        outputFiles: [{
+          filename: filename,
+          url: image.url,
+          width: image.width,
+          height: image.height,
+          contentType: image.content_type
+        }],
+        extraParams: {
+          acceleration: options.acceleration
+        }
+      };
+      const mdPath = savePromptMarkdown(outputPath, metadata);
+
       console.log(`  [${i + 1}] ${filename}`);
       console.log(`      パス: ${outputPath}`);
+      console.log(`      プロンプト: ${mdPath}`);
       console.log(`      サイズ: ${image.width}x${image.height}`);
       console.log(`      形式: ${image.content_type}`);
       console.log(`      URL: ${image.url}`);
