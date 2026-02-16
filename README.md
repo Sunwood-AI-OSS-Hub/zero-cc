@@ -31,7 +31,8 @@ Claude Code を強化する、実用的なカスタムスキルコレクショ�
 | スキル | 説明 |
 |:------:|------|
 | **extension-generator** | 自然言語から Claude Code 拡張機能（スキル/エージェント）を自動生成 |
-| **repo-create** | GitHub リポジトリを新規作成・初期化 |
+| **fal-ai** | fal.ai APIで画像生成・画像編集・動画生成（プロンプト自動保存機能付き） |
+| **repo-create** | GitHub リポジトリを新規作成・初期化（AI生成ヘッダー画像対応） |
 | **repo-flow** | Git Flow ワークフロー（ブランチ/PR/マージ） |
 | **repo-maintain** | 既存リポジトリのメンテナンス（リリース/変更履歴/状態確認） |
 | **remotion** | Remotion 動画制作ベストプラクティス（React ベースの動画生成） |
@@ -67,11 +68,39 @@ GitHub リポジトリを新規作成・初期化します。
 **機能:**
 - `gh repo create` でリポジトリ作成
 - README.md / .gitignore / LICENSE を自動生成
+- AI生成ヘッダー画像（fal.ai Nano Banana Pro）
 - initial commit を自動実行
 
 ```bash
 /repo-create my-awesome-project
 /repo-create my-app --private --description "My awesome app"
+```
+
+---
+
+### 🎨 fal-ai
+
+fal.ai API を使って画像生成・画像編集・動画生成を行います。
+
+**機能:**
+- **画像生成** - テキストから高品質な画像を生成（Nano Banana Pro、Qwen Image 2512）
+- **画像編集** - 既存の画像をプロンプトで編集
+- **動画生成** - 画像から動画を生成（LTX-2）
+- **音声付き動画生成** - 画像から音声付き動画を生成（LTX-2 19B Distilled）
+- **プロンプト自動保存** - 生成物と一緒にプロンプト情報を `.md` ファイルで自動保存
+
+```bash
+# 画像生成
+「マーケティングバナーを作って、テキスト『SUMMER SALE』入りで」
+「夕日の山脈の画像を作って」
+「猫のイラストを生成して」
+
+# 画像編集
+「この写真の空を青くして」
+
+# 動画生成
+「この写真から動画を作って」
+「この写真から音声付き動画を作って」
 ```
 
 ---
@@ -205,6 +234,17 @@ zero-cc/
 │       ├── remotion/
 │       │   ├── SKILL.md
 │       │   └── rules/
+│       ├── fal-ai/
+│       │   ├── SKILL.md
+│       │   ├── scripts/
+│       │   │   ├── t2i-nano-banana-pro.ts
+│       │   │   ├── t2i-qwen-image-2512.ts
+│       │   │   ├── i2i-qwen-image-edit-2511.ts
+│       │   │   ├── i2v-ltx-2.ts
+│       │   │   ├── i2v-ltx-2-audio.ts
+│       │   │   └── utils/
+│       │   │       └── prompt-saver.ts
+│       │   └── package.json
 │       └── voicevox/
 │           ├── SKILL.md
 │           └── scripts/
